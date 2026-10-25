@@ -6,7 +6,7 @@ Fachliche Begründungen der einzelnen Regeln: README, Abschnitt „Ertragsrechnu
 from bisect import bisect_right
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, date, datetime, timedelta, tzinfo
 
 # 90-%-Quantil der Standardnormalverteilung (aus der Aufgabe)
 P90_Z = 1.282
@@ -73,6 +73,17 @@ class MonthlyEnergy:
 
 
 @dataclass(frozen=True)
+class DailyStats:
+    day: date  # Kalendertag in der übergebenen Zeitzone
+    hours: int
+    valid_hours: int
+    mean_wind_ms: float | None  # Messhöhe, nur gültige Stunden
+    mean_power_kw: float | None
+    measured_mwh: float
+    filled_mwh: float  # fehlende Stunden mit dem Mittel ihres Monats, wie in der Jahresrechnung
+
+
+@dataclass(frozen=True)
 class YieldResult:
     hours_total: int
     hours_valid: int
@@ -83,6 +94,7 @@ class YieldResult:
     p50_mwh: float
     p90_mwh: float
     monthly: list[MonthlyEnergy]
+    daily: list[DailyStats]
 
     @property
     def coverage(self) -> float:
@@ -125,37 +137,41 @@ def mark_frozen_values(hours: list[HourlyWind]) -> tuple[list[HourlyWind], int]:
     return result, frozen
 
 
-def calculate_yield(hours: list[HourlyWind], curve: PowerCurve, site: SiteParameters) -> YieldResult:
+def calculate_yield(
+    hours: list[HourlyWind], curve: PowerCurve, site: SiteParameters, tz: tzinfo = UTC
+) -> YieldResult:
     """AEP brutto/netto, P50 und P90 für die übergebenen Stunden (lückenlos, ungültige als None).
 
     Fehlende Stunden werden je Kalendermonat mit der mittleren Leistung dieses Monats aufgefüllt,
     ein Monat ganz ohne gültige Werte mit der mittleren Leistung des ganzen Zeitraums.
+    Zusätzlich gibt es Tageswerte, gruppiert nach Kalendertagen in der Zeitzone `tz`.
     """
     hours, frozen = mark_frozen_values(hours)
     factor = site.hub_height_factor
+    powers = [None if h.wind_speed_ms is None else curve.power_kw(h.wind_speed_ms * factor) for h in hours]
 
     by_month: dict[str, list[float | None]] = defaultdict(list)
-    for hour in hours:
-        power = None if hour.wind_speed_ms is None else curve.power_kw(hour.wind_speed_ms * factor)
-        by_month[hour.timestamp.strftime("%Y-%m")].append(power)
+    for hour, power in zip(hours, powers):
+        by_month[_month_of(hour)].append(power)
 
-    valid_powers = [p for powers in by_month.values() for p in powers if p is not None]
+    valid_powers = [p for p in powers if p is not None]
     if not valid_powers:
         raise ValueError("Keine gültigen Messwerte im Zeitraum")
     overall_mean_kw = sum(valid_powers) / len(valid_powers)
 
     monthly = []
-    for month, powers in sorted(by_month.items()):
-        valid = [p for p in powers if p is not None]
-        mean_kw = sum(valid) / len(valid) if valid else overall_mean_kw
-        missing_hours = len(powers) - len(valid)
+    month_mean_kw: dict[str, float] = {}
+    for month, month_powers in sorted(by_month.items()):
+        valid = [p for p in month_powers if p is not None]
+        month_mean_kw[month] = sum(valid) / len(valid) if valid else overall_mean_kw
+        missing_hours = len(month_powers) - len(valid)
         monthly.append(
             MonthlyEnergy(
                 month=month,
-                hours=len(powers),
+                hours=len(month_powers),
                 valid_hours=len(valid),
                 measured_mwh=sum(valid) / 1000,
-                filled_mwh=missing_hours * mean_kw / 1000,
+                filled_mwh=missing_hours * month_mean_kw[month] / 1000,
             )
         )
 
@@ -172,4 +188,34 @@ def calculate_yield(hours: list[HourlyWind], curve: PowerCurve, site: SiteParame
         p50_mwh=net,
         p90_mwh=net * site.p90_factor,
         monthly=monthly,
+        daily=_daily_stats(hours, powers, month_mean_kw, tz),
     )
+
+
+def _month_of(hour: HourlyWind) -> str:
+    return hour.timestamp.strftime("%Y-%m")
+
+
+def _daily_stats(
+    hours: list[HourlyWind], powers: list[float | None], month_mean_kw: dict[str, float], tz: tzinfo
+) -> list[DailyStats]:
+    by_day: dict[date, list[tuple[HourlyWind, float | None]]] = defaultdict(list)
+    for hour, power in zip(hours, powers):
+        by_day[hour.timestamp.astimezone(tz).date()].append((hour, power))
+
+    daily = []
+    for day, entries in sorted(by_day.items()):
+        valid = [(h.wind_speed_ms, p) for h, p in entries if p is not None]
+        filled_kwh = sum(month_mean_kw[_month_of(h)] for h, p in entries if p is None)
+        daily.append(
+            DailyStats(
+                day=day,
+                hours=len(entries),
+                valid_hours=len(valid),
+                mean_wind_ms=sum(w for w, _ in valid) / len(valid) if valid else None,
+                mean_power_kw=sum(p for _, p in valid) / len(valid) if valid else None,
+                measured_mwh=sum(p for _, p in valid) / 1000,
+                filled_mwh=filled_kwh / 1000,
+            )
+        )
+    return daily

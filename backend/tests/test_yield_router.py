@@ -45,10 +45,11 @@ def test_recent_hours_show_power_and_reason_for_invalid_hours(api_with_db):
     for hours_ago in (5, 4, 3):  # dreimal exakt gleicher Wert → Wiederholungen eingefroren
         store(api_with_db, hours_ago, 6.49)
 
-    body = client.get("/api/recent?days=1").json()
+    body = client.get("/api/recent?days=2").json()  # gestern 0 Uhr (deutsche Zeit) bis jetzt
 
-    by_age = {24 - i: h for i, h in enumerate(body["hours"], start=1)}  # letzte Stunde = vor 0 h
-    assert len(body["hours"]) == 24
+    hours = body["hours"]
+    by_age = {len(hours) - 1 - i: h for i, h in enumerate(hours)}  # letzte Stunde = vor 0 h
+    assert 25 <= len(hours) <= 49
     assert by_age[1]["power_kw"] == pytest.approx(3536.5, abs=0.1)
     assert by_age[2]["status"] == "sensor_error"
     assert [by_age[a]["status"] for a in (5, 4, 3)] == ["valid", "frozen", "frozen"]
@@ -83,3 +84,5 @@ def test_returns_yield_with_inputs_and_data_quality(api_with_db):
     assert quality["sensor_error"] == 1
     assert sum(quality.values()) == body["hours_total"]
     assert sum(m["hours"] for m in body["monthly"]) == body["hours_total"]
+    assert sum(d["hours"] for d in body["daily"]) == body["hours_total"]
+    assert body["daily"][-1]["measured_mwh"] >= 0

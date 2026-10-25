@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -133,6 +134,25 @@ def test_net_p50_and_p90():
 def test_no_valid_values_is_an_error():
     with pytest.raises(ValueError):
         calculate_yield(hours_from(datetime(2026, 1, 1, tzinfo=UTC), [None, None]), CURVE, PARAMS)
+
+
+# --- Tageswerte ---
+
+def test_daily_stats_use_german_calendar_days_and_monthly_fill():
+    berlin = ZoneInfo("Europe/Berlin")
+    # 25.10.2026 21:00 UTC = 22:00 Uhr deutsche Zeit (Winterzeit), 23:00 UTC = 00:00 Uhr am 26.10.
+    hours = hours_from(datetime(2026, 10, 25, 21, tzinfo=UTC), [11.44, None, 7.86])
+
+    result = calculate_yield(hours, CURVE, PARAMS, berlin)
+
+    first, second = result.daily
+    assert (first.day.isoformat(), first.hours, first.valid_hours) == ("2026-10-25", 2, 1)
+    assert first.mean_wind_ms == pytest.approx(11.44)
+    assert first.mean_power_kw == pytest.approx(3536.5, abs=0.1)
+    month_mean_kw = (3536.5 + 1802.5) / 2
+    assert first.filled_mwh == pytest.approx(month_mean_kw / 1000, abs=1e-3)  # wie in der Jahresrechnung
+    assert (second.day.isoformat(), second.hours, second.measured_mwh) == ("2026-10-26", 1, pytest.approx(1.8025, abs=1e-3))
+    assert sum(d.measured_mwh + d.filled_mwh for d in result.daily) == pytest.approx(result.aep_gross_mwh)
 
 
 # --- Zeitfenster ---

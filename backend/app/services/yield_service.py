@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,9 @@ from app.domain.yield_calculator import (
 )
 from app.repositories import measurement_repo, reference_repo
 from app.repositories.reference_repo import ReferenceSet
+
+# Tage werden nach deutscher Zeit gebildet (Mitternacht in Berlin, Sommer-/Winterzeit inklusive)
+LOCAL_TZ = ZoneInfo("Europe/Berlin")
 
 
 @dataclass(frozen=True)
@@ -42,7 +46,7 @@ def calculate_current_yield(session: Session, now: datetime) -> YieldReport:
 
     curve, site = _power_model(reference)
     try:
-        result = calculate_yield(hours, curve, site)
+        result = calculate_yield(hours, curve, site, LOCAL_TZ)
     except ValueError as exc:
         raise NoDataYet(str(exc)) from exc
 
@@ -78,21 +82,24 @@ FROZEN_LOOKBACK = timedelta(hours=24)
 
 
 def recent_hours(session: Session, now: datetime, days: int) -> RecentReport:
-    """Stündlicher Verlauf der letzten Tage: Wind, Leistung und Grund für jede ungültige Stunde."""
+    """Stündlicher Verlauf der letzten Kalendertage (heute bis jetzt): Wind, Leistung und Grund für jede ungültige Stunde."""
     reference = reference_repo.load(session)
     if reference is None:
         raise NoDataYet("Noch keine Stammdaten – der erste Sync läuft noch")
     curve, site = _power_model(reference)
 
     end = now.replace(minute=0, second=0, microsecond=0)
-    start = end - timedelta(days=days) + timedelta(hours=1)
+    local_midnight = now.astimezone(LOCAL_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+    start = (local_midnight - timedelta(days=days - 1)).astimezone(UTC)
     lookback_start = start - FROZEN_LOOKBACK
     stored = measurement_repo.wind_and_quality_between(session, lookback_start, end)
     timeline = [lookback_start + timedelta(hours=i) for i in range(int((end - lookback_start) / timedelta(hours=1)) + 1)]
     cleaned, _ = mark_frozen_values([HourlyWind(h, stored.get(h, (None, ""))[0]) for h in timeline])
 
     hours = []
-    for hour in cleaned[-days * 24 :]:
+    for hour in cleaned:
+        if hour.timestamp < start:
+            continue
         wind, quality = stored.get(hour.timestamp, (None, "no_record"))
         if hour.wind_speed_ms is not None:
             hub = hour.wind_speed_ms * site.hub_height_factor

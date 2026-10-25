@@ -1,10 +1,14 @@
 <!doctype html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WindIQ Ertragsrechnung</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232a78d6' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 10v12M9 22h6M12 7.6 12.6 2M13.2 9.7l5 2.7M10.8 9.7l-4.9 2.9'/%3E%3Ccircle cx='12' cy='9' r='1.4'/%3E%3C/svg%3E">
+  <script>
+    // Theme vor dem ersten Zeichnen setzen (Standard: dunkel), damit nichts aufblitzt
+    try { document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark"; } catch { /* ohne Speicher: dunkel */ }
+  </script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233987e5' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 10v12M9 22h6M12 7.6 12.6 2M13.2 9.7l5 2.7M10.8 9.7l-4.9 2.9'/%3E%3Ccircle cx='12' cy='9' r='1.4'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
   <script src="/static/app.js" defer></script>
@@ -13,16 +17,24 @@
   <main class="page">
     <header class="header">
       <div class="brand">
-        <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-          <path d="M12 10v12M9 22h6M12 7.6 12.6 2M13.2 9.7l5 2.7M10.8 9.7l-4.9 2.9"/><circle cx="12" cy="9" r="1.4"/>
-        </svg>
+        <a class="home-link" href="/" aria-label="Zur Startseite">
+          <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <path d="M12 10v12M9 22h6M12 7.6 12.6 2M13.2 9.7l5 2.7M10.8 9.7l-4.9 2.9"/><circle cx="12" cy="9" r="1.4"/>
+          </svg>
+        </a>
         <div>
-          <h1>WindIQ Ertragsrechnung</h1>
+          <h1><a class="home-link" href="/">WindIQ Ertragsrechnung</a></h1>
           <p class="subtitle" id="subtitle"><span data-skeleton>Messmast · Anlage · Standort</span></p>
         </div>
       </div>
-      <div class="sync-badge" id="sync-badge" aria-live="polite">
-        <span class="dot" aria-hidden="true"></span><span id="sync-label">Lade …</span>
+      <div class="header-actions">
+        <div class="sync-badge" id="sync-badge" aria-live="polite">
+          <span class="dot" aria-hidden="true"></span><span id="sync-label">Lade …</span>
+        </div>
+        <button type="button" class="icon-button" id="theme-toggle" aria-label="Hell/Dunkel umschalten">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+        </button>
       </div>
     </header>
 
@@ -31,7 +43,7 @@
     <section class="kpis" aria-label="Ergebnis">
       <article class="card hero">
         <h2 class="label">P50 · Jahresertrag netto
-          <span class="info" tabindex="0" role="note" data-tip="Der erwartete Jahresertrag nach Abzug der Verluste: Mit 50 % Wahrscheinlichkeit wird er erreicht oder übertroffen.">i</span>
+          <span class="info" tabindex="0" role="button" aria-label="Erklärung P50" data-tip="Der erwartete Jahresertrag nach Abzug der Verluste: Mit 50 % Wahrscheinlichkeit wird er erreicht oder übertroffen.">i</span>
         </h2>
         <p class="hero-value"><span id="p50" data-skeleton>0.000</span> <span class="unit">MWh</span></p>
         <div class="range" aria-hidden="true"><div class="range-fill" id="range-fill"></div></div>
@@ -40,21 +52,21 @@
       </article>
       <article class="card tile">
         <h2 class="label">P90
-          <span class="info" tabindex="0" role="note" data-tip="Vorsichtiger Wert: Mit 90 % Wahrscheinlichkeit wird mindestens dieser Ertrag erreicht. P90 = P50 × (1 − 1,282 × Unsicherheit).">i</span>
+          <span class="info" tabindex="0" role="button" aria-label="Erklärung P90" data-tip="Vorsichtiger Wert: Mit 90 % Wahrscheinlichkeit wird mindestens dieser Ertrag erreicht. P90 = P50 × (1 − 1,282 × Unsicherheit).">i</span>
         </h2>
         <p class="value"><span id="p90" data-skeleton>0.000</span> <span class="unit">MWh</span></p>
         <p class="hint">mit 90 % Wahrscheinlichkeit erreicht</p>
       </article>
       <article class="card tile">
         <h2 class="label">AEP brutto
-          <span class="info" tabindex="0" role="note" data-tip="Annual Energy Production: Energie laut Leistungskennlinie über die letzten 12 Monate, noch ohne Verluste für Stillstand, Leitungen und Abschattung.">i</span>
+          <span class="info" tabindex="0" role="button" aria-label="Erklärung AEP brutto" data-tip="Annual Energy Production: Energie laut Leistungskennlinie über die letzten 12 Monate, noch ohne Verluste für Stillstand, Leitungen und Abschattung.">i</span>
         </h2>
         <p class="value"><span id="gross" data-skeleton>0.000</span> <span class="unit">MWh</span></p>
         <p class="hint">laut Kennlinie, vor Verlusten</p>
       </article>
       <article class="card tile">
         <h2 class="label">Datenverfügbarkeit
-          <span class="info" tabindex="0" role="note" data-tip="Anteil der Stunden mit gültigem Messwert. Fehlende oder ungültige Stunden werden mit dem Mittel ihres Monats aufgefüllt.">i</span>
+          <span class="info" tabindex="0" role="button" aria-label="Erklärung Datenverfügbarkeit" data-tip="Anteil der Stunden mit gültigem Messwert. Fehlende oder ungültige Stunden werden mit dem Mittel ihres Monats aufgefüllt.">i</span>
         </h2>
         <p class="value"><span id="coverage" data-skeleton>00,0 %</span></p>
         <div class="meter" aria-hidden="true"><div class="meter-fill" id="coverage-bar"></div></div>
@@ -79,10 +91,17 @@
             <li><span class="swatch series-2" aria-hidden="true"></span>Aufgefüllt (geschätzt)</li>
           </ul>
         </div>
-        <div class="chart-box"><canvas id="monthly-chart" role="img" aria-label="Energie pro Monat, gemessen und aufgefüllt"></canvas></div>
+        <div class="chart-box"><canvas id="year-energy" role="img" aria-label="Energie pro Monat, gemessen und aufgefüllt"></canvas></div>
         <p class="hint footnote">* Teilmonat: liegt nur teilweise im 12-Monats-Fenster</p>
+
+        <h3 class="chart-sub">Wind auf Messhöhe – Tagesmittel (m/s)</h3>
+        <div class="chart-box small"><canvas id="year-wind" role="img" aria-label="Tagesmittel der Windgeschwindigkeit, letzte 12 Monate"></canvas></div>
+        <h3 class="chart-sub">Leistung der Anlage – Tagesmittel (kW)</h3>
+        <div class="chart-box small"><canvas id="year-power" role="img" aria-label="Tagesmittel der Leistung, letzte 12 Monate"></canvas></div>
+        <p class="hint footnote"><span class="swatch gap" aria-hidden="true"></span>Grau hinterlegt: Tag ohne gültige Messung</p>
+
         <details class="table-view">
-          <summary>Als Tabelle anzeigen</summary>
+          <summary>Monatswerte als Tabelle anzeigen</summary>
           <table>
             <thead>
               <tr><th>Monat</th><th>Gemessen (MWh)</th><th>Aufgefüllt (MWh)</th><th>Gesamt (MWh)</th><th>Gültige Stunden</th></tr>
@@ -96,18 +115,29 @@
         <div class="chart-head">
           <div>
             <h2>Die letzten 7 Tage</h2>
-            <p class="hint">Stündliche Messwerte und Leistung der Anlage · Uhrzeiten in deutscher Zeit</p>
+            <p class="hint">Heute bis jetzt und die 6 Tage davor · Uhrzeiten in deutscher Zeit</p>
           </div>
         </div>
         <div class="mini-stats">
-          <div><p class="label">Energie (gemessen)</p><p class="mini-value" id="week-energy">–</p></div>
-          <div><p class="label">Ø Wind auf Messhöhe</p><p class="mini-value" id="week-wind">–</p></div>
-          <div><p class="label">Datenverfügbarkeit</p><p class="mini-value" id="week-coverage">–</p></div>
+          <div><p class="label">Energie (gemessen)</p><p class="mini-value" id="week-stat-energy">–</p></div>
+          <div><p class="label">Ø Wind auf Messhöhe</p><p class="mini-value" id="week-stat-wind">–</p></div>
+          <div><p class="label">Datenverfügbarkeit</p><p class="mini-value" id="week-stat-coverage">–</p></div>
         </div>
-        <h3 class="chart-sub">Wind auf Messhöhe (m/s)</h3>
-        <div class="chart-box small"><canvas id="wind-chart" role="img" aria-label="Windgeschwindigkeit der letzten 7 Tage"></canvas></div>
-        <h3 class="chart-sub">Leistung der Anlage (kW)</h3>
-        <div class="chart-box small"><canvas id="power-chart" role="img" aria-label="Leistung der Anlage der letzten 7 Tage"></canvas></div>
+
+        <div class="chart-head">
+          <h3 class="chart-sub">Energie pro Tag (MWh)</h3>
+          <ul class="legend" aria-label="Legende">
+            <li><span class="swatch series-1" aria-hidden="true"></span>Gemessen</li>
+            <li><span class="swatch series-2" aria-hidden="true"></span>Aufgefüllt (geschätzt)</li>
+          </ul>
+        </div>
+        <div class="chart-box medium"><canvas id="week-energy-chart" role="img" aria-label="Energie pro Tag, gemessen und aufgefüllt"></canvas></div>
+        <p class="hint footnote">* heute: nur bis zur aktuellen Stunde</p>
+
+        <h3 class="chart-sub">Wind auf Messhöhe – stündlich (m/s)</h3>
+        <div class="chart-box small"><canvas id="week-wind" role="img" aria-label="Windgeschwindigkeit der letzten 7 Tage"></canvas></div>
+        <h3 class="chart-sub">Leistung der Anlage – stündlich (kW)</h3>
+        <div class="chart-box small"><canvas id="week-power" role="img" aria-label="Leistung der Anlage der letzten 7 Tage"></canvas></div>
         <p class="hint footnote"><span class="swatch gap" aria-hidden="true"></span>Grau hinterlegt: keine gültige Messung – der Grund steht im Tooltip</p>
       </div>
     </section>
@@ -147,8 +177,9 @@
 
     <footer class="footer">
       <p>Daten: WindIQ Measurement API · Code: <a href="https://github.com/kaplan101/windiq" target="_blank" rel="noopener">github.com/kaplan101/windiq</a></p>
-      <p>Seite aktualisiert sich alle 5 Minuten · <span id="refreshed">–</span></p>
+      <p>Seite aktualisiert sich jede Minute · <span id="refreshed">–</span></p>
     </footer>
   </main>
+  <div class="tip-box" id="tip-box" role="tooltip" hidden></div>
 </body>
 </html>

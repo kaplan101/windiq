@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
@@ -13,6 +13,16 @@ class MonthlyEnergyOut(BaseModel):
     month: str
     hours: int
     valid_hours: int
+    measured_mwh: float
+    filled_mwh: float
+
+
+class DailyOut(BaseModel):
+    day: date
+    hours: int
+    valid_hours: int
+    mean_wind_ms: float | None
+    mean_power_kw: float | None
     measured_mwh: float
     filled_mwh: float
 
@@ -54,6 +64,7 @@ class YieldResponse(BaseModel):
     coverage: float
     data_quality: dict[str, int]
     monthly: list[MonthlyEnergyOut]
+    daily: list[DailyOut]  # Kalendertage in deutscher Zeit
     inputs: InputsOut
 
 
@@ -114,6 +125,7 @@ def _to_response(report: YieldReport, now: datetime) -> YieldResponse:
         coverage=r.coverage,
         data_quality=report.data_quality,
         monthly=[MonthlyEnergyOut(**vars(m)) for m in r.monthly],
+        daily=[DailyOut(**vars(d)) for d in r.daily],
         inputs=InputsOut(
             mast_name=report.reference.mast.name,
             turbine_name=turbine.name,
