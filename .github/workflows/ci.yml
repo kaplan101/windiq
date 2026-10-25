@@ -18,6 +18,22 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: windiq
+          POSTGRES_PASSWORD: windiq
+          POSTGRES_DB: windiq
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U windiq -d windiq"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://windiq:windiq@localhost:5432/windiq_test
     steps:
       - uses: actions/checkout@v7
 
