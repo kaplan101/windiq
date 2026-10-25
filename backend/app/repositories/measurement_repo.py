@@ -53,9 +53,20 @@ def oldest_timestamp(session: Session) -> datetime | None:
     return session.scalar(select(func.min(Measurement.timestamp)))
 
 
-def count_by_quality(session: Session) -> dict[str, int]:
-    rows = session.execute(select(Measurement.quality, func.count()).group_by(Measurement.quality))
-    return {quality.value: count for quality, count in rows}
+def count_by_quality(session: Session, start: datetime | None = None, end: datetime | None = None) -> dict[str, int]:
+    """Anzahl gespeicherter Stunden je Qualität, optional nur zwischen start und end (einschließlich)."""
+    stmt = select(Measurement.quality, func.count()).group_by(Measurement.quality)
+    if start is not None and end is not None:
+        stmt = stmt.where(Measurement.timestamp.between(start, end))
+    return {quality.value: count for quality, count in session.execute(stmt)}
+
+
+def wind_speeds_between(session: Session, start: datetime, end: datetime) -> dict[datetime, float | None]:
+    """Bereinigte Windgeschwindigkeit je Stunde zwischen start und end (einschließlich); None = ungültig."""
+    rows = session.execute(
+        select(Measurement.timestamp, Measurement.wind_speed_ms).where(Measurement.timestamp.between(start, end))
+    )
+    return {timestamp: wind_speed for timestamp, wind_speed in rows}
 
 
 def _keep_highest_version(measurements: list[Measurement]) -> list[Measurement]:

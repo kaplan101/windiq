@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from fastapi import FastAPI
 
-from app.api.routers import health_router, status_router
+from app.api.routers import health_router, status_router, yield_router
 from app.core.config import get_settings
 from app.services.ingestion_service import run_sync
 from app.services.sync_scheduler import SyncScheduler
@@ -29,3 +29,4 @@ app = FastAPI(title="WindIQ Ertragsrechnung", lifespan=lifespan)
 app.state.scheduler = None
 app.include_router(health_router.router)
 app.include_router(status_router.router)
+app.include_router(yield_router.router)
