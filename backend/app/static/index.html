@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WindIQ Ertragsrechnung</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div>
+        <h1>WindIQ Ertragsrechnung</h1>
+        <p class="subtitle" id="subtitle">Jahresenergieertrag aus Live-Messdaten</p>
+      </div>
+      <div class="sync-badge" id="sync-badge" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span><span id="sync-label">Lade …</span>
+      </div>
+    </header>
+
+    <p class="notice" id="notice" hidden></p>
+
+    <section class="kpis" aria-label="Ergebnis">
+      <article class="card hero">
+        <h2 class="label">P50 · Jahresertrag netto</h2>
+        <p class="hero-value"><span id="p50">–</span> <span class="unit">MWh</span></p>
+        <p class="hint" id="window">Letzte 12 Monate</p>
+      </article>
+      <article class="card tile">
+        <h2 class="label">P90</h2>
+        <p class="value"><span id="p90">–</span> <span class="unit">MWh</span></p>
+        <p class="hint">mit 90 % Wahrscheinlichkeit erreicht</p>
+      </article>
+      <article class="card tile">
+        <h2 class="label">AEP brutto</h2>
+        <p class="value"><span id="gross">–</span> <span class="unit">MWh</span></p>
+        <p class="hint">laut Kennlinie, vor Verlusten</p>
+      </article>
+      <article class="card tile">
+        <h2 class="label">Datenverfügbarkeit</h2>
+        <p class="value"><span id="coverage">–</span></p>
+        <div class="meter" aria-hidden="true"><div class="meter-fill" id="coverage-bar"></div></div>
+        <p class="hint" id="measured">–</p>
+      </article>
+    </section>
+
+    <section class="card chart-card" aria-labelledby="chart-title">
+      <div class="chart-head">
+        <div>
+          <h2 id="chart-title">Energie pro Monat</h2>
+          <p class="hint">AEP brutto in MWh · fehlende Stunden mit dem Monatsmittel aufgefüllt</p>
+        </div>
+        <ul class="legend" aria-label="Legende">
+          <li><span class="swatch series-1" aria-hidden="true"></span>Gemessen</li>
+          <li><span class="swatch series-2" aria-hidden="true"></span>Aufgefüllt (geschätzt)</li>
+        </ul>
+      </div>
+      <div class="chart-box"><canvas id="monthly-chart" role="img" aria-label="Energie pro Monat, gemessen und aufgefüllt"></canvas></div>
+      <details class="table-view">
+        <summary>Als Tabelle anzeigen</summary>
+        <table>
+          <thead>
+            <tr><th>Monat</th><th>Gemessen (MWh)</th><th>Aufgefüllt (MWh)</th><th>Gesamt (MWh)</th><th>Gültige Stunden</th></tr>
+          </thead>
+          <tbody id="monthly-table"></tbody>
+        </table>
+      </details>
+    </section>
+
+    <section class="columns">
+      <article class="card">
+        <h2>Eingangswerte</h2>
+        <dl class="facts" id="inputs"></dl>
+        <details class="formulas">
+          <summary>So wird gerechnet</summary>
+          <ol>
+            <li>Wind auf Nabenhöhe: v<sub>Nabe</sub> = v<sub>Mess</sub> × (h<sub>Nabe</sub> / h<sub>Mess</sub>)<sup>α</sup></li>
+            <li>Leistung je Stunde aus der Kennlinie (linear zwischen den Stützpunkten, unter Cut-in und über Cut-out 0 kW)</li>
+            <li>AEP brutto = Summe über die letzten 12 Monate; fehlende Stunden je Monat mit dem Monatsmittel aufgefüllt</li>
+            <li>AEP netto = brutto × (1 − Verfügbarkeit) × (1 − elektrisch) × (1 − Abschattung)</li>
+            <li>P50 = AEP netto · P90 = P50 × (1 − 1,282 × U)</li>
+          </ol>
+        </details>
+      </article>
+
+      <article class="card">
+        <h2>Datenqualität</h2>
+        <p class="hint">Stunden im 12-Monats-Fenster</p>
+        <dl class="facts" id="quality"></dl>
+      </article>
+
+      <article class="card">
+        <h2>Betrieb</h2>
+        <dl class="facts" id="ops"></dl>
+        <ul class="links">
+          <li><a href="https://stats.uptimerobot.com/MPXGp73ORH" target="_blank" rel="noopener">Statusseite (UptimeRobot)</a></li>
+          <li><a href="/docs" target="_blank" rel="noopener">API-Dokumentation</a></li>
+          <li><a href="/api/yield" target="_blank" rel="noopener">Rohdaten des Ergebnisses (JSON)</a></li>
+        </ul>
+      </article>
+    </section>
+
+    <footer class="footer">Seite aktualisiert sich alle 5 Minuten · <span id="refreshed">–</span></footer>
+  </main>
+</body>
+</html>

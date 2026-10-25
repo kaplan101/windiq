@@ -32,6 +32,15 @@ def test_health_returns_ok():
     assert response.json() == {"status": "ok"}
 
 
+def test_dashboard_page_is_served():
+    page = client.get("/")
+    script = client.get("/static/app.js")
+
+    assert page.status_code == 200
+    assert "WindIQ Ertragsrechnung" in page.text
+    assert script.status_code == 200
+
+
 def test_ready_returns_ok_when_database_reachable():
     app.dependency_overrides[get_session] = lambda: FakeSession(db_reachable=True)
 

@@ -18,6 +18,9 @@ class MonthlyEnergyOut(BaseModel):
 
 
 class InputsOut(BaseModel):
+    mast_name: str
+    turbine_name: str
+    site_name: str
     measurement_height_m: float
     hub_height_m: float
     shear_exponent: float
@@ -82,6 +85,9 @@ def _to_response(report: YieldReport, now: datetime) -> YieldResponse:
         data_quality=report.data_quality,
         monthly=[MonthlyEnergyOut(**vars(m)) for m in r.monthly],
         inputs=InputsOut(
+            mast_name=report.reference.mast.name,
+            turbine_name=turbine.name,
+            site_name=site_data.name,
             measurement_height_m=site.measurement_height_m,
             hub_height_m=site.hub_height_m,
             shear_exponent=site.shear_exponent,
