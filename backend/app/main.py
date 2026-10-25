@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import timedelta
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -36,6 +36,16 @@ app.include_router(health_router.router)
 app.include_router(status_router.router)
 app.include_router(yield_router.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.middleware("http")
+async def revalidate_dashboard_files(request: Request, call_next):
+    # Browser sollen Seite, CSS und JS bei jedem Laden kurz prüfen (unverändert → 304, ohne neue Übertragung),
+    # damit nach einem Deploy sofort die neue Version erscheint
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @app.get("/", include_in_schema=False)

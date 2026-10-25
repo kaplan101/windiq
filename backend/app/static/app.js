@@ -303,6 +303,24 @@ function renderYield(y) {
     }),
   );
 
+  $("weekly-table").replaceChildren(
+    ...y.daily.slice(-7).map((d, i, days) => {
+      const today = i === days.length - 1;
+      const cells = [
+        `${fmt.dayShort(d.day)}${today ? "*" : ""}`,
+        fmt.mwh1(d.measured_mwh),
+        fmt.mwh1(d.filled_mwh),
+        fmt.mwh1(d.measured_mwh + d.filled_mwh),
+        `${fmt.int(d.valid_hours)} / ${fmt.int(d.hours)}`,
+        d.mean_wind_ms == null ? "–" : fmt.num(d.mean_wind_ms, 1),
+        d.mean_power_kw == null ? "–" : fmt.int(d.mean_power_kw),
+      ];
+      const tr = document.createElement("tr");
+      tr.replaceChildren(...cells.map((text) => Object.assign(document.createElement("td"), { textContent: text })));
+      return tr;
+    }),
+  );
+
   if (isVisible("panel-year")) renderYearCharts(y);
   if (isVisible("panel-week") && lastRecent) renderWeekCharts(lastRecent, y);
 }
@@ -386,15 +404,40 @@ function renderStatus(status, freshness) {
   $("sync-badge").querySelector(".dot").className = `dot ${level}`;
   $("sync-label").textContent = text;
 
+  const latest = freshness.latest_measurement_at;
   const rows = [
     ["Letzter Sync", sync ? statusLabel(sync.ok ? "good" : "critical", `${fmt.time(sync.finished_at)} Uhr · ${sync.ok ? "OK" : "Fehler"}`) : "–"],
-    ["Letzter Abruf", sync?.ok ? `${fmt.int(sync.fetched)} Werte · ${fmt.int(sync.written)} neu` : "–"],
-    ["Neuester Messwert", freshness.latest_measurement_at ? statusLabel(fresh ? "good" : "warning", `${fmt.time(freshness.latest_measurement_at)} Uhr (vor ${freshness.age_minutes} min)`) : "–"],
+    // mit 2 h Sicherheitsabstand abgefragt → bekannte Werte werden erneut geprüft
+    ["Letzter Abruf", sync?.ok ? `${fmt.int(sync.fetched)} geprüft · ${fmt.int(sync.written)} neu` : "–"],
+    ["Neueste Messstunde", latest ? statusLabel(fresh ? "good" : "warning", `${hourRange(latest)} Uhr`) : "–"],
     ["Nächster Sync", status.next_sync_at ? `${fmt.time(status.next_sync_at)} Uhr (alle ${status.sync_interval_minutes} min)` : "–"],
     ["Gespeicherte Stunden", fmt.int(status.measurements_total)],
   ];
   if (sync && !sync.ok) rows.splice(1, 0, ["Fehler", sync.error]);
   setFacts("ops", rows);
+
+  const pending = pendingHour(latest);
+  $("ops-hint").hidden = !pending;
+  if (pending) $("ops-hint").replaceChildren(statusLabel("warning", `Wert für ${hourRange(pending)} Uhr noch nicht von WindIQ geliefert – wird beim nächsten Sync nachgeholt.`));
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+
+// „18–19“: ein Messwert gilt für die ganze Stunde ab seinem Zeitstempel
+function hourRange(iso) {
+  const start = new Date(iso);
+  return `${fmt.hourOfDay(start.toISOString())}–${fmt.hourOfDay(new Date(start.getTime() + HOUR_MS).toISOString())}`;
+}
+
+// Fehlt der Wert der aktuellen Stunde, obwohl er normalerweise längst da wäre (WindIQ liefert ~6 min nach
+// Stundenbeginn, unser Sync holt ihn spätestens zur nächsten Viertelstunde), liefert dies die fehlende Stunde.
+function pendingHour(latestIso) {
+  if (!latestIso) return null;
+  const now = Date.now();
+  const currentHourStart = Math.floor(now / HOUR_MS) * HOUR_MS;
+  const expectedBy = currentHourStart + 20 * 60 * 1000;
+  const nextExpected = new Date(latestIso).getTime() + HOUR_MS;
+  return nextExpected <= currentHourStart && now >= expectedBy ? new Date(nextExpected).toISOString() : null;
 }
 
 // ---------- Reiter ----------

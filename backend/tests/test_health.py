@@ -39,6 +39,9 @@ def test_dashboard_page_is_served():
     assert page.status_code == 200
     assert "WindIQ Ertragsrechnung" in page.text
     assert script.status_code == 200
+    # nach einem Deploy sofort die neue Version laden
+    assert page.headers["cache-control"] == "no-cache"
+    assert script.headers["cache-control"] == "no-cache"
 
 
 def test_ready_returns_ok_when_database_reachable():

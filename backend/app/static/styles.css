@@ -167,6 +167,9 @@ th { color: var(--text-secondary); font-weight: 500; }
 .facts dt { color: var(--text-secondary); }
 .facts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .status { display: inline-flex; align-items: center; gap: 6px; }
+.ops-hint { margin-top: 12px; }
+.ops-hint .status { display: flex; align-items: flex-start; }
+.ops-hint .dot { margin-top: 5px; }
 .formulas ol { padding-left: 18px; margin: 8px 0 0; color: var(--text-secondary); }
 .formulas li { margin-bottom: 4px; }
 .links { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 6px; font-size: 0.875rem; }

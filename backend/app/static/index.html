@@ -139,6 +139,16 @@
         <h3 class="chart-sub">Leistung der Anlage – stündlich (kW)</h3>
         <div class="chart-box small"><canvas id="week-power" role="img" aria-label="Leistung der Anlage der letzten 7 Tage"></canvas></div>
         <p class="hint footnote"><span class="swatch gap" aria-hidden="true"></span>Grau hinterlegt: keine gültige Messung – der Grund steht im Tooltip</p>
+
+        <details class="table-view">
+          <summary>Tageswerte als Tabelle anzeigen</summary>
+          <table>
+            <thead>
+              <tr><th>Tag</th><th>Gemessen (MWh)</th><th>Aufgefüllt (MWh)</th><th>Gesamt (MWh)</th><th>Gültige Stunden</th><th>Ø Wind (m/s)</th><th>Ø Leistung (kW)</th></tr>
+            </thead>
+            <tbody id="weekly-table"></tbody>
+          </table>
+        </details>
       </div>
     </section>
 
@@ -167,6 +177,7 @@
       <article class="card">
         <h2>Betrieb</h2>
         <dl class="facts" id="ops"></dl>
+        <p class="hint ops-hint" id="ops-hint" hidden></p>
         <ul class="links">
           <li><a href="https://stats.uptimerobot.com/MPXGp73ORH" target="_blank" rel="noopener">Statusseite (UptimeRobot)</a></li>
           <li><a href="/docs" target="_blank" rel="noopener">API-Dokumentation</a></li>
