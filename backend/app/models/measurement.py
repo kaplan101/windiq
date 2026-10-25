@@ -11,11 +11,10 @@ class MeasurementQuality(enum.StrEnum):
     """Warum ein Messwert verwendet wird oder nicht."""
 
     OK = "ok"
-    CLAMPED = "clamped"  # kleiner negativer Wert, auf 0 m/s gesetzt
     MISSING = "missing"  # API lieferte null
     INVALID = "invalid"  # Text, der keine Zahl ist
     SENSOR_ERROR = "sensor_error"  # Fehlercode -999
-    OUTLIER = "outlier"  # physikalisch unplausibel hoch
+    OUTLIER = "outlier"  # physikalisch unmöglich: negativ oder über 40 m/s
     UNKNOWN_UNIT = "unknown_unit"  # Einheit nicht umrechenbar
 
 
