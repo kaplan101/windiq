@@ -35,6 +35,7 @@ class StatusResponse(BaseModel):
     oldest_measurement_at: datetime | None
     latest_measurement_at: datetime | None
     sync_interval_minutes: int | None
+    next_sync_at: datetime | None
     last_sync: SyncRunInfo | None
     last_successful_sync: SyncRunInfo | None
 
@@ -66,6 +67,7 @@ def sync_status(session: SessionDep, request: Request) -> StatusResponse:
         oldest_measurement_at=measurement_repo.oldest_timestamp(session),
         latest_measurement_at=measurement_repo.latest_timestamp(session),
         sync_interval_minutes=None if scheduler is None else int(scheduler.interval.total_seconds() // 60),
+        next_sync_at=None if scheduler is None else scheduler.next_run_at,
         last_sync=_to_info(scheduler.last_run if scheduler else None),
         last_successful_sync=_to_info(scheduler.last_success if scheduler else None),
     )

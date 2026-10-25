@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from app.services.ingestion_service import SyncResult
 from app.services.sync_scheduler import SyncScheduler
 
@@ -34,6 +36,21 @@ def test_failed_run_does_not_raise_and_keeps_last_success():
     assert "API weg" in second.error
     assert scheduler.last_run is second
     assert scheduler.last_success is first
+
+
+@pytest.mark.parametrize(
+    ("now", "expected"),
+    [
+        (datetime(2026, 10, 25, 19, 8, 0, tzinfo=UTC), datetime(2026, 10, 25, 19, 15, tzinfo=UTC)),
+        (datetime(2026, 10, 25, 19, 14, 59, tzinfo=UTC), datetime(2026, 10, 25, 19, 15, tzinfo=UTC)),
+        (datetime(2026, 10, 25, 19, 45, 1, tzinfo=UTC), datetime(2026, 10, 25, 20, 0, tzinfo=UTC)),
+        (datetime(2026, 10, 25, 19, 15, 0, tzinfo=UTC), datetime(2026, 10, 25, 19, 30, tzinfo=UTC)),
+    ],
+)
+def test_next_run_is_on_the_quarter_hour(now, expected):
+    scheduler = SyncScheduler(lambda: RESULT, timedelta(minutes=15), clock=lambda: now)
+
+    assert scheduler.next_slot() == expected
 
 
 def test_background_loop_runs_immediately_and_stops():
