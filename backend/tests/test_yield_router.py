@@ -38,6 +38,24 @@ def store(session, hours_ago: int, speed: float | None, quality=MeasurementQuali
     )
 
 
+def test_recent_hours_show_power_and_reason_for_invalid_hours(api_with_db):
+    save_samples(api_with_db)
+    store(api_with_db, 1, 11.44)
+    store(api_with_db, 2, None, MeasurementQuality.SENSOR_ERROR)
+    for hours_ago in (5, 4, 3):  # dreimal exakt gleicher Wert → Wiederholungen eingefroren
+        store(api_with_db, hours_ago, 6.49)
+
+    body = client.get("/api/recent?days=1").json()
+
+    by_age = {24 - i: h for i, h in enumerate(body["hours"], start=1)}  # letzte Stunde = vor 0 h
+    assert len(body["hours"]) == 24
+    assert by_age[1]["power_kw"] == pytest.approx(3536.5, abs=0.1)
+    assert by_age[2]["status"] == "sensor_error"
+    assert [by_age[a]["status"] for a in (5, 4, 3)] == ["valid", "frozen", "frozen"]
+    assert by_age[10]["status"] == "no_record"
+    assert body["energy_mwh"] == pytest.approx((3536.5 + by_age[5]["power_kw"]) / 1000, abs=1e-3)
+
+
 def test_returns_503_before_first_sync(api_with_db):
     response = client.get("/api/yield")
 

@@ -61,6 +61,18 @@ def count_by_quality(session: Session, start: datetime | None = None, end: datet
     return {quality.value: count for quality, count in session.execute(stmt)}
 
 
+def wind_and_quality_between(
+    session: Session, start: datetime, end: datetime
+) -> dict[datetime, tuple[float | None, str]]:
+    """Bereinigte Windgeschwindigkeit und Qualität je Stunde zwischen start und end (einschließlich)."""
+    rows = session.execute(
+        select(Measurement.timestamp, Measurement.wind_speed_ms, Measurement.quality).where(
+            Measurement.timestamp.between(start, end)
+        )
+    )
+    return {timestamp: (wind_speed, quality.value) for timestamp, wind_speed, quality in rows}
+
+
 def wind_speeds_between(session: Session, start: datetime, end: datetime) -> dict[datetime, float | None]:
     """Bereinigte Windgeschwindigkeit je Stunde zwischen start und end (einschließlich); None = ungültig."""
     rows = session.execute(

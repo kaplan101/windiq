@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
 from app.api.deps import SessionDep
-from app.services.yield_service import NoDataYet, YieldReport, calculate_current_yield
+from app.services.yield_service import NoDataYet, YieldReport, calculate_current_yield, recent_hours
 
 router = APIRouter(tags=["yield"])
 
@@ -55,6 +55,36 @@ class YieldResponse(BaseModel):
     data_quality: dict[str, int]
     monthly: list[MonthlyEnergyOut]
     inputs: InputsOut
+
+
+class RecentHourOut(BaseModel):
+    timestamp: datetime
+    wind_speed_ms: float | None
+    hub_wind_ms: float | None
+    power_kw: float | None
+    status: str
+
+
+class RecentResponse(BaseModel):
+    energy_mwh: float
+    mean_wind_ms: float | None
+    coverage: float
+    hours: list[RecentHourOut]
+
+
+@router.get("/api/recent")
+def get_recent(session: SessionDep, days: int = Query(7, ge=1, le=31)) -> RecentResponse:
+    """Stündlicher Verlauf der letzten Tage: Wind, Leistung und Grund für jede ungültige Stunde."""
+    try:
+        report = recent_hours(session, datetime.now(UTC), days)
+    except NoDataYet as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    return RecentResponse(
+        energy_mwh=report.energy_mwh,
+        mean_wind_ms=report.mean_wind_ms,
+        coverage=report.coverage,
+        hours=[RecentHourOut(**vars(h)) for h in report.hours],
+    )
 
 
 @router.get("/api/yield")
