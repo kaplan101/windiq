@@ -52,8 +52,8 @@ class SyncScheduler:
             run = SyncRun(started_at, datetime.now(UTC), None, f"{type(exc).__name__}: {exc}")
         else:
             logger.info(
-                "Sync ok: %d Werte abgerufen, %d gespeichert (geändert seit %s)",
-                result.fetched, result.written, result.since.isoformat(),
+                "Sync ok: %d Werte abgerufen, %d gespeichert (geändert seit %s), Turbine v%s, Standort v%s",
+                result.fetched, result.written, result.since.isoformat(), result.turbine_version, result.site_version,
             )
             run = SyncRun(started_at, datetime.now(UTC), result, None)
             self.last_success = run

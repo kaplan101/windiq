@@ -8,7 +8,7 @@ from app.core.config import get_settings
 from app.core.db import get_session_factory
 from app.integration.windiq_api.client import WindiqApiClient
 from app.integration.windiq_api.mapper import to_measurement
-from app.repositories import measurement_repo
+from app.repositories import measurement_repo, reference_repo
 
 # Leere Datenbank: alles holen, was die API hat (das letzte Jahr)
 INITIAL_SINCE = datetime(1970, 1, 1, tzinfo=UTC)
@@ -21,6 +21,16 @@ class SyncResult:
     since: datetime
     fetched: int
     written: int
+    turbine_version: int | None = None
+    site_version: int | None = None
+
+
+def sync_reference_data(session: Session, client: WindiqApiClient) -> tuple[int, int]:
+    """Holt Mast, Turbine und Standort und speichert sie; liefert die Versionen von Turbine und Standort."""
+    mast, turbine, site = client.get_mast(), client.get_turbine(), client.get_site()
+    reference_repo.save(session, mast, turbine, site)
+    session.commit()
+    return turbine.version, site.version
 
 
 def sync_measurements(session: Session, client: WindiqApiClient) -> SyncResult:
@@ -45,4 +55,12 @@ def run_sync() -> SyncResult:
         get_session_factory()() as session,
     ):
         client = WindiqApiClient(http, settings.windiq_client_id, settings.windiq_client_secret.get_secret_value())
-        return sync_measurements(session, client)
+        turbine_version, site_version = sync_reference_data(session, client)
+        result = sync_measurements(session, client)
+        return SyncResult(
+            since=result.since,
+            fetched=result.fetched,
+            written=result.written,
+            turbine_version=turbine_version,
+            site_version=site_version,
+        )

@@ -5,7 +5,14 @@ from datetime import datetime
 
 import httpx
 
-from app.integration.windiq_api.schemas import MeasurementDto, MeasurementPage, TokenResponse
+from app.integration.windiq_api.schemas import (
+    MastDto,
+    MeasurementDto,
+    MeasurementPage,
+    SiteDto,
+    TokenResponse,
+    TurbineDto,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +43,15 @@ class WindiqApiClient:
         self._sleep = sleep
         self._token: str | None = None
         self._token_valid_until = 0.0
+
+    def get_mast(self) -> MastDto:
+        return MastDto.model_validate(self._get_json("/v1/mast"))
+
+    def get_turbine(self) -> TurbineDto:
+        return TurbineDto.model_validate(self._get_json("/v1/turbine"))
+
+    def get_site(self) -> SiteDto:
+        return SiteDto.model_validate(self._get_json("/v1/site"))
 
     def iter_measurement_pages(self, updated_since: datetime) -> Iterator[list[MeasurementDto]]:
         """Liefert Seite für Seite alle Messwerte, die sich seit `updated_since` geändert haben."""

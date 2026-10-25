@@ -2,9 +2,16 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 
-from app.integration.windiq_api.schemas import MeasurementDto
+from app.integration.windiq_api.schemas import MastDto, MeasurementDto, SiteDto, TurbineDto
 from app.models import Measurement, MeasurementQuality
-from app.services.ingestion_service import INITIAL_SINCE, WATERMARK_OVERLAP, sync_measurements
+from app.repositories import reference_repo
+from app.services.ingestion_service import (
+    INITIAL_SINCE,
+    WATERMARK_OVERLAP,
+    sync_measurements,
+    sync_reference_data,
+)
+from tests.api_samples import MAST, SITE, TURBINE
 
 
 def dto(hour: int, speed: float | str | None = 5.0, version: int = 1, unit: str = "m/s") -> MeasurementDto:
@@ -62,6 +69,23 @@ def test_correction_overwrites_and_repeated_data_changes_nothing(db_session):
 
     assert (corrected.written, repeated.written) == (1, 0)
     assert db_session.scalar(select(Measurement.wind_speed_ms)) == 6.64
+
+
+def test_reference_data_is_fetched_and_stored(db_session):
+    class ReferenceClient:
+        def get_mast(self):
+            return MastDto.model_validate(MAST)
+
+        def get_turbine(self):
+            return TurbineDto.model_validate(TURBINE)
+
+        def get_site(self):
+            return SiteDto.model_validate(SITE)
+
+    versions = sync_reference_data(db_session, ReferenceClient())
+
+    assert versions == (43, 44)
+    assert reference_repo.load(db_session).turbine.hub_height_m == 140.0
 
 
 def test_failed_page_keeps_earlier_pages(db_session):

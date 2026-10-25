@@ -43,4 +43,4 @@ def db_session(db_engine):
     with Session(db_engine) as session:
         yield session
     with db_engine.begin() as conn:
-        conn.execute(text("TRUNCATE measurement"))
+        conn.execute(text("TRUNCATE measurement, reference_data"))

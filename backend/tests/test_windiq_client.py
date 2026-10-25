@@ -3,7 +3,10 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
+from pydantic import ValidationError
+
 from app.integration.windiq_api.client import WindiqApiClient, WindiqApiError
+from tests.api_samples import SITE, TURBINE
 
 SINCE = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -88,6 +91,29 @@ def test_refreshes_token_once_on_401():
     assert len(pages) == 1
     assert api.token_requests == 2
     assert api.measurement_requests[1].headers["Authorization"] == "Bearer token-2"
+
+
+def test_reads_reference_data():
+    api = FakeApi([httpx.Response(200, json=TURBINE), httpx.Response(200, json=SITE)])
+    client = make_client(api)
+
+    turbine, site = client.get_turbine(), client.get_site()
+
+    assert turbine.hub_height_m == 140.0
+    assert len(turbine.power_curve) == 26
+    assert site.losses.wake == 0.05
+
+
+def test_rejects_implausible_reference_data():
+    unsorted_curve = {**TURBINE, "power_curve": list(reversed(TURBINE["power_curve"]))}
+    losses_in_percent = {**SITE, "losses": {"availability": 3, "electrical": 2, "wake": 5}}
+    api = FakeApi([httpx.Response(200, json=unsorted_curve), httpx.Response(200, json=losses_in_percent)])
+    client = make_client(api)
+
+    with pytest.raises(ValidationError):
+        client.get_turbine()
+    with pytest.raises(ValidationError):
+        client.get_site()
 
 
 def test_does_not_retry_client_errors():
