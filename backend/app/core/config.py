@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     windiq_api_base_url: str = "https://windiq-mock-api.sliplane.app"
     windiq_client_id: str
     windiq_client_secret: SecretStr
+    sync_enabled: bool = True
+    sync_interval_minutes: int = 15
 
 
 @lru_cache

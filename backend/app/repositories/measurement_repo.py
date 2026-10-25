@@ -44,6 +44,20 @@ def latest_source_updated_at(session: Session) -> datetime | None:
     return session.scalar(select(func.max(Measurement.source_updated_at)))
 
 
+def latest_timestamp(session: Session) -> datetime | None:
+    """Jüngste gespeicherte Messstunde – zeigt, ob der Sync aktuell ist."""
+    return session.scalar(select(func.max(Measurement.timestamp)))
+
+
+def oldest_timestamp(session: Session) -> datetime | None:
+    return session.scalar(select(func.min(Measurement.timestamp)))
+
+
+def count_by_quality(session: Session) -> dict[str, int]:
+    rows = session.execute(select(Measurement.quality, func.count()).group_by(Measurement.quality))
+    return {quality.value: count for quality, count in rows}
+
+
 def _keep_highest_version(measurements: list[Measurement]) -> list[Measurement]:
     # Dieselbe Stunde darf in einem Statement nur einmal vorkommen (z. B. "…Z" und "…+00:00")
     newest: dict[datetime, Measurement] = {}
