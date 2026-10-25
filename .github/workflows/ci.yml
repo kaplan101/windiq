@@ -1,0 +1,60 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Läuft ein neuer Push, während der alte noch deployt, wird der alte abgebrochen
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Backend-Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.13.4"
+          enable-cache: true
+
+      - name: Abhängigkeiten installieren
+        run: uv sync --locked
+
+      - name: Tests ausführen
+        run: uv run python -m pytest -v
+
+  build:
+    name: Docker-Image bauen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Image bauen (prüft, ob das Dockerfile funktioniert)
+        run: docker build --tag windiq-api:${{ github.sha }} backend
+
+  deploy:
+    name: Deploy auf Sliplane
+    needs: [test, build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sliplane-Deploy-Hook aufrufen
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.SLIPLANE_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_HOOK_URL" ]; then
+            echo "::error::Secret SLIPLANE_DEPLOY_HOOK_URL fehlt"
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error \
+            --connect-timeout 10 --max-time 60 \
+            "$DEPLOY_HOOK_URL"
