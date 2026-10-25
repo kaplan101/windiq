@@ -15,5 +15,17 @@ services:
       timeout: 3s
       retries: 10
 
+  api:
+    build: ./backend
+    env_file: .env
+    environment:
+      # Im Docker-Netz heißt die Datenbank "db", nicht "localhost"
+      DATABASE_URL: postgresql+psycopg://windiq:windiq@db:5432/windiq
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   pgdata:
