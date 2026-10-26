@@ -422,8 +422,6 @@ function renderStatus(status, freshness) {
   const latest = freshness.latest_measurement_at;
   const rows = [
     ["Letzter Sync", sync ? statusLabel(sync.ok ? "good" : "critical", `${fmt.time(sync.finished_at)} Uhr · ${sync.ok ? "OK" : "Fehler"}`) : "–"],
-    // mit 2 h Sicherheitsabstand abgefragt → bekannte Werte werden erneut geprüft
-    ["Letzter Abruf", sync?.ok ? `${fmt.int(sync.fetched)} geprüft · ${fmt.int(sync.written)} neu${sync.skipped ? ` · ${fmt.int(sync.skipped)} unlesbar` : ""}` : "–"],
     ["Neueste Messstunde", latest ? statusLabel(fresh ? "good" : "warning", `${hourRange(latest)} Uhr`) : "–"],
     ["Nächster Sync", status.next_sync_at ? `${fmt.time(status.next_sync_at)} Uhr (alle ${status.sync_interval_minutes} min)` : "–"],
     ["Gespeicherte Stunden", fmt.int(status.measurements_total)],
