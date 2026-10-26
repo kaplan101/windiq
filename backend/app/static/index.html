@@ -10,7 +10,8 @@
   </script>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233987e5' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 10v12M9 22h6M12 7.6 12.6 2M13.2 9.7l5 2.7M10.8 9.7l-4.9 2.9'/%3E%3Ccircle cx='12' cy='9' r='1.4'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/styles.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  <!-- Chart.js 4.4.1 (MIT) liegt im Repo statt auf einem CDN: Das Dashboard hängt so von keinem fremden Server ab -->
+  <script src="/static/vendor/chart.umd.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body class="loading">

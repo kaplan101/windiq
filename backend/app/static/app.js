@@ -249,6 +249,15 @@ function windAndPowerCharts({ windId, powerId, points, tick, title, windText, po
   });
 }
 
+// Tage werden nach deutscher Uhrzeit gebildet → am Tag der Zeitumstellung 23 bzw. 25 Stunden.
+// Nur bei vollständigen Tagen prüfen (der erste Tag des Zeitraums und heute sind ohnehin unvollständig).
+function dstNote(day, isEdgeOfRange) {
+  if (isEdgeOfRange) return "";
+  if (day.hours === 23) return "Beginn der Sommerzeit – dieser Tag hat 23 Stunden";
+  if (day.hours === 25) return "Ende der Sommerzeit – dieser Tag hat 25 Stunden";
+  return "";
+}
+
 // ---------- 12 Monate ----------
 
 function isPartialMonth(m) {
@@ -311,7 +320,7 @@ function renderYield(y) {
         fmt.mwh1(d.measured_mwh),
         fmt.mwh1(d.filled_mwh),
         fmt.mwh1(d.measured_mwh + d.filled_mwh),
-        `${fmt.int(d.valid_hours)} / ${fmt.int(d.hours)}`,
+        `${fmt.int(d.valid_hours)} / ${fmt.int(d.hours)}${dstNote(d, today) ? " (Zeitumstellung)" : ""}`,
         d.mean_wind_ms == null ? "–" : fmt.num(d.mean_wind_ms, 1),
         d.mean_power_kw == null ? "–" : fmt.int(d.mean_power_kw),
       ];
@@ -348,7 +357,10 @@ function renderYearCharts(y) {
     windText: (i) => `Ø Wind: ${fmt.num(days[i].mean_wind_ms, 1)} m/s`,
     powerText: (i) => `Ø Leistung: ${fmt.int(days[i].mean_power_kw)} kW`,
     invalidText: () => "Keine gültige Messung an diesem Tag",
-    footer: (i) => `${fmt.int(days[i].valid_hours)} von ${fmt.int(days[i].hours)} Stunden gültig`,
+    footer: (i) => [
+      `${fmt.int(days[i].valid_hours)} von ${fmt.int(days[i].hours)} Stunden gültig`,
+      dstNote(days[i], i === 0 || i === days.length - 1),
+    ].filter(Boolean),
   });
 }
 
@@ -372,7 +384,10 @@ function renderWeekCharts(r, y) {
         title: today ? `${fmt.day(d.day)} (heute, bis jetzt)` : fmt.day(d.day),
         measured: d.measured_mwh,
         filled: d.filled_mwh,
-        footer: `Gesamt: ${fmt.mwh1(d.measured_mwh + d.filled_mwh)} MWh · ${fmt.int(d.valid_hours)} / ${fmt.int(d.hours)} h gültig`,
+        footer: [
+          `Gesamt: ${fmt.mwh1(d.measured_mwh + d.filled_mwh)} MWh · ${fmt.int(d.valid_hours)} / ${fmt.int(d.hours)} h gültig`,
+          dstNote(d, today),
+        ].filter(Boolean),
       };
     }),
   );
@@ -408,7 +423,7 @@ function renderStatus(status, freshness) {
   const rows = [
     ["Letzter Sync", sync ? statusLabel(sync.ok ? "good" : "critical", `${fmt.time(sync.finished_at)} Uhr · ${sync.ok ? "OK" : "Fehler"}`) : "–"],
     // mit 2 h Sicherheitsabstand abgefragt → bekannte Werte werden erneut geprüft
-    ["Letzter Abruf", sync?.ok ? `${fmt.int(sync.fetched)} geprüft · ${fmt.int(sync.written)} neu` : "–"],
+    ["Letzter Abruf", sync?.ok ? `${fmt.int(sync.fetched)} geprüft · ${fmt.int(sync.written)} neu${sync.skipped ? ` · ${fmt.int(sync.skipped)} unlesbar` : ""}` : "–"],
     ["Neueste Messstunde", latest ? statusLabel(fresh ? "good" : "warning", `${hourRange(latest)} Uhr`) : "–"],
     ["Nächster Sync", status.next_sync_at ? `${fmt.time(status.next_sync_at)} Uhr (alle ${status.sync_interval_minutes} min)` : "–"],
     ["Gespeicherte Stunden", fmt.int(status.measurements_total)],
@@ -416,9 +431,13 @@ function renderStatus(status, freshness) {
   if (sync && !sync.ok) rows.splice(1, 0, ["Fehler", sync.error]);
   setFacts("ops", rows);
 
+  const hints = [];
   const pending = pendingHour(latest);
-  $("ops-hint").hidden = !pending;
-  if (pending) $("ops-hint").replaceChildren(statusLabel("warning", `Wert für ${hourRange(pending)} Uhr noch nicht von WindIQ geliefert – wird beim nächsten Sync nachgeholt.`));
+  if (pending) hints.push(`Wert für ${hourRange(pending)} Uhr noch nicht von WindIQ geliefert – wird beim nächsten Sync nachgeholt.`);
+  if (sync?.skipped) hints.push(`${fmt.int(sync.skipped)} unlesbare(r) Messwert(e) übersprungen – kommt eine Korrektur, wird sie automatisch übernommen.`);
+  if (sync?.reference_error) hints.push(`Neue Stammdaten abgelehnt (${sync.reference_error}) – es wird mit dem letzten gültigen Stand gerechnet.`);
+  $("ops-hint").hidden = hints.length === 0;
+  $("ops-hint").replaceChildren(...hints.map((text) => statusLabel("warning", text)));
 }
 
 const HOUR_MS = 60 * 60 * 1000;
