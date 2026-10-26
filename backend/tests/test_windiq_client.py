@@ -33,7 +33,8 @@ class FakeApi:
     def handle(self, request: httpx.Request) -> httpx.Response:
         if request.url.path == "/auth/token":
             self.token_requests += 1
-            return httpx.Response(200, json={"access_token": f"token-{self.token_requests}", "token_type": "Bearer", "expires_in": 3600})
+            token = {"access_token": f"token-{self.token_requests}", "token_type": "Bearer", "expires_in": 3600}
+            return httpx.Response(200, json=token)
         self.measurement_requests.append(request)
         return self.measurement_responses.pop(0)
 
@@ -52,10 +53,29 @@ def test_follows_cursor_until_last_page():
 
     pages = list(make_client(api).iter_measurement_pages(SINCE))
 
-    assert [len(p) for p in pages] == [2, 1]
+    assert [len(p.valid) for p in pages] == [2, 1]
     assert "cursor" not in api.measurement_requests[0].url.params
     assert api.measurement_requests[1].url.params["cursor"] == "c1"
     assert api.measurement_requests[1].url.params["updated_since"] == SINCE.isoformat()
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        {"timestamp": "2026-10-27T1400:00Z"},  # Datum kaputt
+        {"unit": None},  # Einheit fehlt
+        {"version": None},  # Version fehlt
+        {"timestamp": None},  # Zeitstempel fehlt
+    ],
+)
+def test_unreadable_record_is_skipped_instead_of_blocking_the_page(broken):
+    records = [measurement(12), measurement(13), measurement(14) | broken]
+    api = FakeApi([httpx.Response(200, json={"data": records, "next_cursor": None})])
+
+    (batch,) = list(make_client(api).iter_measurement_pages(SINCE))
+
+    assert [m.timestamp.hour for m in batch.valid] == [12, 13]
+    assert batch.skipped == 1
 
 
 def test_reuses_token_across_requests():

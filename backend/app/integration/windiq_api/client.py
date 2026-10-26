@@ -1,9 +1,11 @@
 import logging
 import time
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from datetime import datetime
 
 import httpx
+from pydantic import ValidationError
 
 from app.integration.windiq_api.schemas import (
     MastDto,
@@ -23,6 +25,14 @@ TOKEN_REFRESH_MARGIN_SECONDS = 60
 
 class WindiqApiError(Exception):
     """Die API war auch nach mehreren Versuchen nicht erreichbar."""
+
+
+@dataclass(frozen=True)
+class MeasurementBatch:
+    """Eine Seite Messwerte: die lesbaren Datensätze und die Anzahl übersprungener, unlesbarer."""
+
+    valid: list[MeasurementDto]
+    skipped: int
 
 
 class WindiqApiClient:
@@ -53,15 +63,28 @@ class WindiqApiClient:
     def get_site(self) -> SiteDto:
         return SiteDto.model_validate(self._get_json("/v1/site"))
 
-    def iter_measurement_pages(self, updated_since: datetime) -> Iterator[list[MeasurementDto]]:
+    def iter_measurement_pages(self, updated_since: datetime) -> Iterator[MeasurementBatch]:
         """Liefert Seite für Seite alle Messwerte, die sich seit `updated_since` geändert haben."""
         params: dict[str, str | int] = {"updated_since": updated_since.isoformat(), "limit": PAGE_SIZE}
         while True:
             page = MeasurementPage.model_validate(self._get_json("/v1/measurements", params))
-            yield page.data
+            yield self._parse_records(page.data)
             if page.next_cursor is None:
                 return
             params["cursor"] = page.next_cursor
+
+    @staticmethod
+    def _parse_records(records: list[dict]) -> MeasurementBatch:
+        # Jeden Datensatz einzeln prüfen: Ein unlesbarer darf nicht die ganze Seite – und damit jeden
+        # weiteren Sync – blockieren. Korrigiert die API ihn später, kommt er mit neuem updated_at erneut.
+        valid, skipped = [], 0
+        for record in records:
+            try:
+                valid.append(MeasurementDto.model_validate(record))
+            except ValidationError as exc:
+                skipped += 1
+                logger.warning("Unlesbaren Messwert übersprungen: %s – %s", record, describe_error(exc))
+        return MeasurementBatch(valid, skipped)
 
     def _get_json(self, path: str, params: dict | None = None) -> dict:
         response = self._request("GET", path, params=params, headers=self._auth_header())
@@ -114,3 +137,12 @@ class WindiqApiClient:
                 self._sleep(delay)
 
         raise WindiqApiError(f"{method} {path} nach {self._max_attempts} Versuchen fehlgeschlagen ({reason})")
+
+
+def describe_error(exc: Exception) -> str:
+    """Kurze, lesbare Fehlerbeschreibung – bei Prüffehlern das erste betroffene Feld, z. B. 'losses.availability: …'."""
+    if isinstance(exc, ValidationError):
+        first = exc.errors()[0]
+        field = ".".join(str(part) for part in first["loc"]) or "Datensatz"
+        return f"{field}: {first['msg']}"
+    return f"{type(exc).__name__}: {exc}"

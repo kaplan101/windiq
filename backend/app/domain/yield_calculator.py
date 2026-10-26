@@ -151,7 +151,7 @@ def calculate_yield(
     powers = [None if h.wind_speed_ms is None else curve.power_kw(h.wind_speed_ms * factor) for h in hours]
 
     by_month: dict[str, list[float | None]] = defaultdict(list)
-    for hour, power in zip(hours, powers):
+    for hour, power in zip(hours, powers, strict=True):
         by_month[_month_of(hour)].append(power)
 
     valid_powers = [p for p in powers if p is not None]
@@ -200,7 +200,7 @@ def _daily_stats(
     hours: list[HourlyWind], powers: list[float | None], month_mean_kw: dict[str, float], tz: tzinfo
 ) -> list[DailyStats]:
     by_day: dict[date, list[tuple[HourlyWind, float | None]]] = defaultdict(list)
-    for hour, power in zip(hours, powers):
+    for hour, power in zip(hours, powers, strict=True):
         by_day[hour.timestamp.astimezone(tz).date()].append((hour, power))
 
     daily = []

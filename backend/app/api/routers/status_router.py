@@ -26,6 +26,8 @@ class SyncRunInfo(BaseModel):
     ok: bool
     fetched: int | None
     written: int | None
+    skipped: int | None
+    reference_error: str | None
     error: str | None
 
 
@@ -82,5 +84,7 @@ def _to_info(run: SyncRun | None) -> SyncRunInfo | None:
         ok=run.ok,
         fetched=run.result.fetched if run.result else None,
         written=run.result.written if run.result else None,
+        skipped=run.result.skipped if run.result else None,
+        reference_error=run.result.reference_error if run.result else None,
         error=run.error,
     )

@@ -70,5 +70,6 @@ class MeasurementDto(BaseModel):
 
 
 class MeasurementPage(BaseModel):
-    data: list[MeasurementDto]
+    # Datensätze bleiben hier ungeprüft; der Client prüft jeden einzeln (ein kaputter blockiert sonst die Seite)
+    data: list[dict]
     next_cursor: str | None
