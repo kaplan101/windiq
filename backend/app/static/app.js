@@ -276,7 +276,9 @@ function renderYield(y) {
   $("range-fill").style.width = `${((y.p90_mwh / y.p50_mwh) * 100).toFixed(1)}%`;
   $("range-text").textContent = `P90 liegt ${fmt.pct(1 - y.p90_mwh / y.p50_mwh)} unter P50 (Unsicherheit ${fmt.pct(inp.uncertainty, 0)})`;
   $("measured").textContent = `${fmt.int(y.hours_valid)} von ${fmt.int(y.hours_total)} Stunden gemessen`;
-  $("window").textContent = `Letzte 12 Monate: ${fmt.dateTime(y.window_start)} – ${fmt.dateTime(y.window_end)} Uhr`;
+  // window_end ist der Beginn der letzten (laufenden) Stunde → angezeigt wird ihr Ende
+  const windowEnd = new Date(new Date(y.window_end).getTime() + HOUR_MS).toISOString();
+  $("window").textContent = `Letzte 12 Monate: ${fmt.dateTime(y.window_start)} – ${fmt.dateTime(windowEnd)} Uhr`;
 
   setFacts("inputs", [
     ["Messhöhe", `${fmt.num(inp.measurement_height_m, 0)} m`],
@@ -422,7 +424,7 @@ function renderStatus(status, freshness) {
   const latest = freshness.latest_measurement_at;
   const rows = [
     ["Letzter Sync", sync ? statusLabel(sync.ok ? "good" : "critical", `${fmt.time(sync.finished_at)} Uhr · ${sync.ok ? "OK" : "Fehler"}`) : "–"],
-    ["Neueste Messstunde", latest ? statusLabel(fresh ? "good" : "warning", `${hourRange(latest)} Uhr`) : "–"],
+    ["Neueste Messstunde", latest ? statusLabel(fresh ? "good" : "warning", `${dayPrefix(latest)}${hourRange(latest)} Uhr`) : "–"],
     ["Nächster Sync", status.next_sync_at ? `${fmt.time(status.next_sync_at)} Uhr (alle ${status.sync_interval_minutes} min)` : "–"],
     ["Gespeicherte Stunden", fmt.int(status.measurements_total)],
   ];
@@ -431,19 +433,32 @@ function renderStatus(status, freshness) {
 
   const hints = [];
   const pending = pendingHour(latest);
-  if (pending) hints.push(`Wert für ${hourRange(pending)} Uhr noch nicht von WindIQ geliefert – wird beim nächsten Sync nachgeholt.`);
+  if (pending) hints.push(`Wert für ${hourRange(pending)} Uhr liegt bei WindIQ noch nicht vor – wird automatisch übernommen, sobald er geliefert wird.`);
   if (sync?.skipped) hints.push(`${fmt.int(sync.skipped)} unlesbare(r) Messwert(e) übersprungen – kommt eine Korrektur, wird sie automatisch übernommen.`);
   if (sync?.reference_error) hints.push(`Neue Stammdaten abgelehnt (${sync.reference_error}) – es wird mit dem letzten gültigen Stand gerechnet.`);
   $("ops-hint").hidden = hints.length === 0;
   $("ops-hint").replaceChildren(...hints.map((text) => statusLabel("warning", text)));
+
+  // Auch an der Kennzahl zeigen, wenn die letzten Stunden geschätzt sind – gleiche Regel wie /health/data
+  const stale = !fresh && latest;
+  $("stale-note").hidden = !stale;
+  $("stale-note").replaceChildren(
+    ...(stale ? [statusLabel("warning", `Neueste Messung ${dayPrefix(latest)}${hourRange(latest)} Uhr – seitdem keine neuen Werte, die Stunden danach sind geschätzt.`)] : []),
+  );
 }
 
 const HOUR_MS = 60 * 60 * 1000;
 
-// „18–19“: ein Messwert gilt für die ganze Stunde ab seinem Zeitstempel
+// „18–19“: ein Messwert gilt für die ganze Stunde ab seinem Zeitstempel (letzte Stunde des Tages: „23–24“)
 function hourRange(iso) {
   const start = new Date(iso);
-  return `${fmt.hourOfDay(start.toISOString())}–${fmt.hourOfDay(new Date(start.getTime() + HOUR_MS).toISOString())}`;
+  const end = fmt.hourOfDay(new Date(start.getTime() + HOUR_MS).toISOString());
+  return `${fmt.hourOfDay(start.toISOString())}–${end === 0 ? 24 : end}`;
+}
+
+// „Mo., 26.10., “ – nur wenn der Zeitpunkt nicht heute ist
+function dayPrefix(iso) {
+  return fmt.date(iso) === fmt.date(new Date().toISOString()) ? "" : `${fmt.weekdayDate(iso)}, `;
 }
 
 // Fehlt der Wert der aktuellen Stunde, obwohl er normalerweise längst da wäre (WindIQ liefert ~6 min nach
