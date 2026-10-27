@@ -69,7 +69,7 @@ Die API ist laut Aufgabe „nicht perfekt“. Gefunden in den Daten (12 Monate, 
 | **eingefrorener Windmesser** (4–8 h exakt gleicher Wert, Richtung dreht weiter) | 41 Folgen, 252 h | ab 3 gleichen Werten: erster gilt, Wiederholungen ungültig (Zufall: ~1:178 je Stunde) |
 | Duplikate (`…Z` vs. `…+00:00`), Zeitstempel in `+02:00` | 19 / 720 | alles nach UTC; Zeitstempel ist Primärschlüssel |
 | nachträgliche Korrekturen (`version` 2/3) | 1.665 | Abruf über `updated_since`; höhere Version gewinnt |
-| verspätete Lieferung (> 1 h, bis 24 h) | 303 | wird über `updated_since` beim nächsten Sync nachgeholt |
+| verspätete Lieferung: 95,6 % der Werte kommen 1–10 min nach Stundenbeginn, der Rest 2–24 h später (dazwischen nie) | 307 (4,4 %) | über `updated_since` automatisch nachgeholt; `/health/data` toleriert eine einzelne verspätete Stunde |
 | Stammdaten ändern sich (z. B. `wake` 0,06 → 0,05) | live beobachtet | bei jedem Sync neu geholt, mit Version gespeichert und angezeigt |
 
 Rohwert, Einheit und Grund (`quality`) werden je Stunde gespeichert – jede ungültige Stunde ist nachvollziehbar.
@@ -92,7 +92,7 @@ Rohwert, Einheit und Grund (`quality`) werden je Stunde gespeichert – jede ung
 |---|---|---|
 | `GET /health` | Prozess lebt | – |
 | `GET /health/ready` | Datenbank erreichbar | Sliplane-Healthcheck (jede Minute, Mail nach 3 Fehlschlägen; gated auch Deploys) + UptimeRobot |
-| `GET /health/data` | neuester Messwert jünger als 2 h | UptimeRobot (zeigt: die App erfüllt ihren Zweck, nicht nur „Server läuft“) |
+| `GET /health/data` | neuester Messwert jünger als 2,5 h | UptimeRobot (zeigt: die App erfüllt ihren Zweck, nicht nur „Server läuft“) |
 | `GET /api/status` | letzter/nächster Sync, Fehler, Anzahl Werte je Qualität | Dashboard-Karte „Betrieb“ |
 
 **CI/CD** (`.github/workflows/ci.yml`): bei jedem Push Tests (gegen echtes PostgreSQL als Service-Container) und Docker-Build parallel; nur wenn beide grün sind und auf `main` gepusht wurde, ruft die Pipeline den Sliplane-Deploy-Hook auf (Sliplanes Auto-Deploy ist aus). Beim Container-Start laufen die Alembic-Migrationen; schlägt eine fehl, startet die neue Version nicht und die alte läuft weiter.
@@ -113,7 +113,7 @@ backend/
 │   ├── core/               Konfiguration, DB-Verbindung
 │   └── static/             Dashboard (wird vom Backend unter / ausgeliefert)
 ├── alembic/versions/       Migrationen
-├── tests/                  55 Testfunktionen (77 Testfälle)
+├── tests/                  59 Testfunktionen (84 Testfälle)
 └── Dockerfile
 docker-compose.yml          lokale Datenbank + API
 ```

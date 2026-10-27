@@ -9,8 +9,10 @@ from app.services.sync_scheduler import SyncRun
 
 router = APIRouter(tags=["status"])
 
-# Neue Werte kommen stündlich; ist der neueste älter, hängt der Sync oder die Quelle
-MAX_DATA_AGE = timedelta(hours=2)
+# Neue Werte kommen stündlich (95,6 % nach 1–10 min, der Rest 2–24 h später, dazwischen nie).
+# Normal wird der neueste Wert höchstens 1 h 15 min alt, bei einer einzelnen verspäteten Stunde 2 h 15 min.
+# 2,5 h tolerieren diese einzelne Verspätung, schlagen aber an, wenn der Sync oder die Quelle länger hängt.
+MAX_DATA_AGE = timedelta(hours=2, minutes=30)
 
 
 class DataFreshness(BaseModel):
@@ -44,7 +46,7 @@ class StatusResponse(BaseModel):
 
 @router.get("/health/data")
 def data_freshness(session: SessionDep, response: Response) -> DataFreshness:
-    """Datenfrische: 503, wenn der neueste Messwert älter als 2 Stunden ist."""
+    """Datenfrische: 503, wenn der neueste Messwert älter als 2,5 Stunden ist."""
     latest = measurement_repo.latest_timestamp(session)
     age = None if latest is None else datetime.now(UTC) - latest
     fresh = age is not None and age <= MAX_DATA_AGE

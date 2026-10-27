@@ -52,6 +52,16 @@ def test_data_is_fresh_with_recent_measurement(api_with_db):
     assert response.json()["status"] == "ok"
 
 
+def test_single_late_hour_at_windiq_is_tolerated(api_with_db):
+    # 19:14, der Wert für 18 Uhr kommt bei WindIQ verspätet → neuester ist 17 Uhr, 2 h 14 min alt
+    store(api_with_db, datetime.now(UTC) - timedelta(hours=2, minutes=14))
+
+    response = client.get("/health/data")
+
+    assert response.status_code == 200
+    assert response.json()["max_age_minutes"] == 150
+
+
 def test_data_is_stale_when_newest_measurement_is_old(api_with_db):
     store(api_with_db, datetime.now(UTC) - timedelta(hours=3))
 
